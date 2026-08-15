@@ -63,7 +63,7 @@ async def chat(payload: dict):
         client = AzureOpenAI(
             azure_endpoint=endpoint,
             api_key=api_key,
-            api_version="2024-10-21",
+            api_version="2024-06-01",
         )
 
         completion = client.chat.completions.create(
@@ -79,6 +79,8 @@ async def chat(payload: dict):
 
         return {"reply": reply.strip()}
     except Exception as exc:
+        import logging
+        logging.error(f"Azure OpenAI error: {str(exc)}", exc_info=True)
         raise HTTPException(
             status_code=502,
             detail="The trip planner could not reach Azure OpenAI. Please verify the Azure configuration and try again.",

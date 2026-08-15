@@ -206,6 +206,12 @@
       const sendBtn = document.getElementById('sendBtn');
       const statusEl = document.getElementById('status');
 
+      // Support both local development (localhost:8000) and deployed backend
+      // Set REACT_APP_BACKEND_URL environment variable in deployment settings
+      const BACKEND_URL = window.location.hostname === 'localhost' 
+        ? 'http://127.0.0.1:8000'
+        : (window.__BACKEND_URL__ || '');  // Can be injected via script tag or config
+
       const state = {
         messages: [
           {
@@ -250,7 +256,7 @@
         setStatus('Thinking...');
         sendBtn.disabled = true;
 
-        fetch('/chat', {
+        fetch(`${BACKEND_URL}/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ messages: state.messages })
