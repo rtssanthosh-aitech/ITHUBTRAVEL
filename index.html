@@ -206,11 +206,12 @@
       const sendBtn = document.getElementById('sendBtn');
       const statusEl = document.getElementById('status');
 
-      // Support both local development (localhost:8000) and deployed backend
-      // Set REACT_APP_BACKEND_URL environment variable in deployment settings
-      const BACKEND_URL = window.location.hostname === 'localhost' 
+      // Support both local development (localhost:8000) and a deployed backend.
+      // When the page is served from Netlify without the API deployed, it must fail
+      // gracefully instead of crashing when /chat is missing.
+      const BACKEND_URL = window.location.hostname === 'localhost'
         ? 'http://127.0.0.1:8000'
-        : (window.__BACKEND_URL__ || '');  // Can be injected via script tag or config
+        : (window.__BACKEND_URL__ || '');
 
       const state = {
         messages: [
@@ -256,16 +257,28 @@
         setStatus('Thinking...');
         sendBtn.disabled = true;
 
-        fetch(`${BACKEND_URL}/chat`, {
+        const chatUrl = BACKEND_URL ? `${BACKEND_URL}/chat` : '/chat';
+
+        fetch(chatUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ messages: state.messages })
         })
           .then(async (response) => {
-            const data = await response.json();
+            const text = await response.text();
+            let data = {};
+
+            try {
+              data = text ? JSON.parse(text) : {};
+            } catch (error) {
+              // Some deployments return HTML or empty responses instead of structured JSON.
+              throw new Error('The deployed chat backend is unavailable. Start the FastAPI app locally or configure a live API endpoint for this site.');
+            }
+
             if (!response.ok) {
               throw new Error(data.detail || 'Unable to get a response.');
             }
+
             state.messages.push({ role: 'assistant', content: data.reply });
             renderMessages();
             setStatus('');
