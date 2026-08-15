@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Trip Planning Assistant</title>
+    <style>
+      :root {
+        --bg: #f3f7fb;
+        --panel: #ffffff;
+        --panel-alt: #edf4ff;
+        --primary: #1d4ed8;
+        --primary-dark: #1e3a8a;
+        --user: #dbeafe;
+        --assistant: #eef2ff;
+        --text: #122033;
+        --muted: #5b6b7f;
+        --border: #dfe7f4;
+        --shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font-family: Arial, Helvetica, sans-serif;
+        background: linear-gradient(180deg, #eef5ff 0%, var(--bg) 100%);
+        color: var(--text);
+      }
+
+      .container {
+        max-width: 920px;
+        margin: 40px auto;
+        padding: 20px;
+      }
+
+      .app {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .header {
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        color: white;
+        padding: 22px 24px;
+      }
+
+      .header h1 {
+        margin: 0;
+        font-size: clamp(1.5rem, 2vw, 2.2rem);
+      }
+
+      .messages {
+        height: 520px;
+        overflow-y: auto;
+        background: #f8fbff;
+        padding: 20px 18px;
+      }
+
+      .message-row {
+        display: flex;
+        margin-bottom: 14px;
+      }
+
+      .message-row.user {
+        justify-content: flex-end;
+      }
+
+      .bubble {
+        max-width: 72%;
+        padding: 12px 14px;
+        border-radius: 16px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .message-row.user .bubble {
+        background: var(--user);
+        border-bottom-right-radius: 4px;
+      }
+
+      .message-row.assistant .bubble {
+        background: var(--assistant);
+        border-bottom-left-radius: 4px;
+      }
+
+      .composer {
+        display: flex;
+        gap: 12px;
+        padding: 18px;
+        border-top: 1px solid var(--border);
+        background: #ffffff;
+      }
+
+      textarea {
+        flex: 1;
+        resize: none;
+        min-height: 52px;
+        max-height: 150px;
+        padding: 14px 16px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        font: inherit;
+        color: var(--text);
+        background: #f9fbff;
+      }
+
+      textarea:focus {
+        outline: 2px solid rgba(29, 78, 216, 0.15);
+        border-color: var(--primary);
+      }
+
+      button {
+        border: none;
+        background: var(--primary);
+        color: white;
+        padding: 0 20px;
+        min-width: 110px;
+        border-radius: 12px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: opacity 0.2s ease, transform 0.2s ease;
+      }
+
+      button:hover {
+        opacity: 0.96;
+      }
+
+      button:active {
+        transform: translateY(1px);
+      }
+
+      button:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+      }
+
+      .status {
+        padding: 0 18px 14px;
+        color: var(--muted);
+        font-size: 0.9rem;
+        min-height: 20px;
+      }
+
+      .disclaimer {
+        padding: 0 18px 18px;
+        color: var(--muted);
+        font-size: 0.82rem;
+        text-align: center;
+      }
+
+      @media (max-width: 640px) {
+        .container {
+          margin: 15px auto;
+          padding: 12px;
+        }
+
+        .messages {
+          height: 420px;
+        }
+
+        .composer {
+          flex-direction: column;
+        }
+
+        button {
+          width: 100%;
+          min-height: 48px;
+        }
+
+        .bubble {
+          max-width: 88%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="app">
+        <div class="header">
+          <h1>Trip Planning Assistant</h1>
+        </div>
+
+        <div class="messages" id="messages" aria-live="polite"></div>
+        <div class="status" id="status"></div>
+
+        <div class="composer">
+          <textarea id="input" rows="1" placeholder="Ask about flights, hotels, itineraries, or destinations..."></textarea>
+          <button id="sendBtn" type="button">Send</button>
+        </div>
+
+        <div class="disclaimer">
+          Always verify travel details such as prices, visa rules, weather, and local advisories before you book.
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const messagesEl = document.getElementById('messages');
+      const inputEl = document.getElementById('input');
+      const sendBtn = document.getElementById('sendBtn');
+      const statusEl = document.getElementById('status');
+
+      const state = {
+        messages: [
+          {
+            role: 'assistant',
+            content: 'Hi! I can help with destinations, travel budgets, flights, hotels, and trip plans. What are you thinking about?'
+          }
+        ]
+      };
+
+      function renderMessages() {
+        messagesEl.innerHTML = '';
+
+        state.messages.forEach((message) => {
+          const row = document.createElement('div');
+          row.className = `message-row ${message.role}`;
+
+          const bubble = document.createElement('div');
+          bubble.className = 'bubble';
+          bubble.textContent = message.content;
+
+          row.appendChild(bubble);
+          messagesEl.appendChild(row);
+        });
+
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      function setStatus(text) {
+        statusEl.textContent = text || '';
+      }
+
+      function sendMessage() {
+        const text = inputEl.value.trim();
+        if (!text) return;
+
+        const userMessage = { role: 'user', content: text };
+        state.messages.push(userMessage);
+        inputEl.value = '';
+        inputEl.style.height = 'auto';
+
+        renderMessages();
+        setStatus('Thinking...');
+        sendBtn.disabled = true;
+
+        fetch('/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: state.messages })
+        })
+          .then(async (response) => {
+            const data = await response.json();
+            if (!response.ok) {
+              throw new Error(data.detail || 'Unable to get a response.');
+            }
+            state.messages.push({ role: 'assistant', content: data.reply });
+            renderMessages();
+            setStatus('');
+          })
+          .catch((error) => {
+            state.messages.push({
+              role: 'assistant',
+              content: `I hit a problem while planning your trip. ${error.message}`
+            });
+            renderMessages();
+            setStatus('');
+          })
+          .finally(() => {
+            sendBtn.disabled = false;
+            inputEl.focus();
+          });
+      }
+
+      inputEl.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+          event.preventDefault();
+          sendMessage();
+        }
+      });
+
+      sendBtn.addEventListener('click', sendMessage);
+
+      inputEl.addEventListener('input', () => {
+        inputEl.style.height = 'auto';
+        inputEl.style.height = Math.min(inputEl.scrollHeight, 150) + 'px';
+      });
+
+      renderMessages();
+    </script>
+  </body>
+</html>
